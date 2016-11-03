@@ -1,6 +1,7 @@
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -40,4 +41,19 @@ public class MapCopyTest {
 		assertFalse(original.get(3, 0) == copy.get(3, 0));
 	}
 
+	@Test
+	public void copyPlayers() throws IOException {
+		Map original = new Map(13, 11, 0);
+		
+		String inputs = TestUtils.readFile("inputs/mapWithPlayers.txt", Charset.defaultCharset());
+		original.parse(inputs);
+		
+		Map copy = original.copy();
+		
+		assertThat(copy.me().x, equalTo(0));
+		assertThat(copy.me().y, equalTo(0));
+
+		assertThat(copy.player(1).x, equalTo(12));
+		assertThat(copy.player(1).y, equalTo(10));
+	}
 }

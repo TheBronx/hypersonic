@@ -27,17 +27,17 @@ public class MapTest {
 		String inputs = TestUtils.readFile("inputs/mapWithPlayers.txt", Charset.defaultCharset());
 		map.parse(inputs);
 		
-		assertTrue(map.get(0, 0).isPlayer());
-		assertTrue(map.get(12, 10).isPlayer());
+		assertTrue(map.player(0).x == 0);
+		assertTrue(map.player(0).y == 0);
 		
-		assertThat(map.get(0, 0).players().get(0).id, equalTo(0));
-		assertThat(map.get(12, 10).players().get(0).id, equalTo(1));
+		assertTrue(map.player(1).x == 12);
+		assertTrue(map.player(1).y == 10);
 		
-		assertThat(map.get(0, 0).players().get(0).bombs(), equalTo(1));
-		assertThat(map.get(12, 10).players().get(0).bombs(), equalTo(1));
+		assertThat(map.player(0).bombs(), equalTo(1));
+		assertThat(map.player(1).bombs(), equalTo(1));
 		
-		assertThat(map.get(0, 0).players().get(0).bombRange(), equalTo(3));
-		assertThat(map.get(12, 10).players().get(0).bombRange(), equalTo(3));
+		assertThat(map.player(0).bombRange(), equalTo(3));
+		assertThat(map.player(1).bombRange(), equalTo(3));
 	}
 	
 	@Test

@@ -45,12 +45,14 @@ class Map {
 	private Cell[][] map;
 	private Robot me;
 	private int playerId;
+	private List<Robot> players;
 
 	public Map(int w, int h, int playerId) {
         this.w = w;
         this.h = h;
         this.playerId = playerId;
         this.map = new Cell[w][h];
+        this.players = new ArrayList<Robot>();
     }
 	
 	public void parse(String inputs) {
@@ -78,11 +80,54 @@ class Map {
 				player.setBombRange(param2);
 				
 				if (player.id == playerId) me = player;
-				map[x][y].addPlayer(player);
+				addPlayer(player);
 			}
 		}
 		
 		fixBombTurns();
+	}
+	
+	public boolean containsPlayer(int playerId) {
+		if (players.size() == 0) return false;
+		for (Robot robot : players) {
+			if (robot.id == playerId) return true;
+		}
+		return false;
+	}
+
+	public void addPlayer(Robot player) {
+		this.players.add(player);
+		if (player.id == playerId) me = player;
+	}
+	
+	public void removePlayer(Robot me) {
+		int i = 0;
+		for (Robot robot : players) {
+			if (me.id == robot.id) {
+				players.remove(i);
+				break;
+			}
+			i++;
+		}
+	}
+	
+	public List<Robot> players() {
+		return players;
+	}
+	
+	public boolean playerOnCoords(int x, int y) {
+		if (players.size() == 0) return false;
+		for (Robot robot : players) {
+			if (robot.x == x && robot.y == y) return true;
+		}
+		return false;
+	}
+	
+	public Robot player(int id) {
+		for (Robot robot : players) {
+			if (robot.id == id) return robot;
+		}
+		return null;
 	}
 	
 	public void fixBombTurns() {
@@ -170,11 +215,10 @@ class Map {
 	}
 
 	public Robot me() {
-		return me;
-	}
-
-	private void setMe(Robot me) {
-		this.me = me;
+		for (Robot robot : players) {
+			if (robot.id == playerId) return robot;
+		}
+		return null;
 	}
 
 	private void setCells(Cell[][] cells) {
@@ -183,7 +227,6 @@ class Map {
 	
 	public Map copy() {
 		Map copy = new Map(w, h, playerId);
-		copy.setMe(me.copy());
 		Cell[][] cellsCopy = new Cell[w][h];
 		for (Cell[] cells : map) {
 			for (Cell cell : cells) {
@@ -191,6 +234,9 @@ class Map {
 			}
 		}
 		copy.setCells(cellsCopy);
+		for (Robot player : players) {
+			copy.addPlayer(player.copy());
+		}
 		return copy;
 	}
 
@@ -317,16 +363,13 @@ class Map {
 		}
 		
 		//finally we move player to move.x and move.y
-		copy.get(player.x, player.y).removePlayer(player);
 		player.x = move.x;
 		player.y = move.y;
-		copy.get(player.x, player.y).addPlayer(player);
 		
 		//if there is an item there, we take it
 		if (copy.get(player.x, player.y).isItem()) {
 			Cell empty = new Cell(CellType.EMPTY);
 			empty.setCoordinates(player.x, player.y);
-			empty.addPlayer(player);
 			copy.set(empty);
 		}
 		
@@ -342,10 +385,10 @@ class Map {
 					} else {
 						List<Cell> things = explosiveThingsInRangeOfBomb(cell);
 						for (Cell thing : things) {
-							if (thing.containsPlayer(playerId)) me().die();
+							if (me().x == thing.x && me().y == thing.y) me().die();
 							map[thing.x][thing.y] = thing.blowUp(); //thing explodes, cell is now empty or an item
 						}
-						if (cell.containsPlayer(playerId)) me().die();
+						if (me().x == cell.x && me().y == cell.y) me().die();
 						map[cell.x][cell.y] = cell.blowUp(); //bomb explodes, now this cell is empty
 						//TODO increase bombs for player if bomb is mine
 					}
@@ -364,7 +407,7 @@ class Map {
 	    for (int i=x+1; i<w; i++) {
 	    	if (bombRange > Math.abs(x - i)) {
 	    		if (map[i][y].isBomb()) break;
-	    		if (map[i][y].isPlayer()) objects.add(map[i][y]);
+	    		if (playerOnCoords(i, y)) objects.add(map[i][y]);
 	    		if (map[i][y].isBox() || map[i][y].isWall() || map[i][y].isItem()) {
 	    			objects.add(map[i][y]);
 	    			break;
@@ -375,7 +418,7 @@ class Map {
 	    for (int i=x-1; i>=0; i--) {
 	    	if (bombRange > Math.abs(x - i)) {
 	    		if (map[i][y].isBomb()) break;
-	    		if (map[i][y].isPlayer()) objects.add(map[i][y]);
+	    		if (playerOnCoords(i, y)) objects.add(map[i][y]);
 	    		if (map[i][y].isBox() || map[i][y].isWall() || map[i][y].isItem()) {
 	    			objects.add(map[i][y]);
 	    			break;
@@ -386,7 +429,7 @@ class Map {
 	    for (int i=y+1; i<h; i++) {
 	    	if (bombRange > Math.abs(y - i)) {
 	    		if (map[x][i].isBomb()) break;
-	    		if (map[x][i].isPlayer()) objects.add(map[x][i]);
+	    		if (playerOnCoords(x, i)) objects.add(map[x][i]);
 	    		if (map[x][i].isBox() || map[x][i].isWall() || map[x][i].isItem()) {
 	    			objects.add(map[x][i]);
 	    			break;
@@ -397,7 +440,7 @@ class Map {
 	    for (int i=y-1; i>=0; i--) {
 	    	if (bombRange > Math.abs(y - i)) {
 	    		if (map[x][i].isBomb()) break;
-	    		if (map[x][i].isPlayer()) objects.add(map[x][i]);
+	    		if (playerOnCoords(x, i)) objects.add(map[x][i]);
 	    		if (map[x][i].isBox() || map[x][i].isWall() || map[x][i].isItem()) {
 	    			objects.add(map[x][i]);
 	    			break;
@@ -409,8 +452,9 @@ class Map {
 	}
 
 	public boolean playerIsDead() {
-		return me.isDead();
+		return me().isDead();
 	}
+
 }
 
 class Cell implements Comparable<Cell> {
@@ -424,45 +468,15 @@ class Cell implements Comparable<Cell> {
 	private int owner;
 	private int turnsLeft;
 	private ItemType itemType;
-	private List<Robot> players;
 
 	public Cell(CellType type) {
 		this.type = type;
-		players = new ArrayList<Robot>();
-	}
-
-	public boolean containsPlayer(int playerId) {
-		if (players.size() == 0) return false;
-		for (Robot robot : players) {
-			if (robot.id == playerId) return true;
-		}
-		return false;
-	}
-
-	public void addPlayer(Robot player) {
-		this.players.add(player);
-	}
-	
-	public void removePlayer(Robot me) {
-		int i = 0;
-		for (Robot robot : players) {
-			if (me.id == robot.id) {
-				players.remove(i);
-				break;
-			}
-			i++;
-		}
-	}
-	
-	public List<Robot> players() {
-		return players;
 	}
 
 	public boolean isBomb() { return type == CellType.BOMB; }
 	public boolean isWall() { return type == CellType.WALL; }
 	public boolean isBox() { return type == CellType.BOX; }
 	public boolean isItem() { return type == CellType.ITEM; }
-	public boolean isPlayer() { return players.size() > 0; }
 
 	public void setCoordinates(int x, int y) {
 		this.x = x;
@@ -547,9 +561,6 @@ class Cell implements Comparable<Cell> {
 		cell.setTurnsLeft(this.turnsLeft());
 		cell.setOwner(this.owner());
 		cell.setItemType(this.itemType());
-		for (Robot player : players) {
-			cell.addPlayer(player.copy());
-		}
 		return cell;
 	}
 	

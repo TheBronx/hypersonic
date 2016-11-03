@@ -37,7 +37,8 @@ public class SimulateTest {
 		Move stay = new Move(map.me().x, map.me().y, false);
 		Map next = map.simulate(stay);
 		
-		assertTrue(map.get(1, 0).isPlayer());
+		assertThat(map.player(0).x, equalTo(1));
+		assertThat(map.player(0).y, equalTo(0));
 		
 		assertThat(map.get(0, 0).type(), equalTo(CellType.BOMB));
 		assertThat(map.get(0, 0).turnsLeft(), equalTo(0));
@@ -57,7 +58,8 @@ public class SimulateTest {
 		Move stay = new Move(map.me().x, map.me().y, false);
 		Map next = map.simulate(stay);
 		
-		assertTrue(map.get(2, 0).isPlayer());
+		assertThat(map.player(0).x, equalTo(2));
+		assertThat(map.player(0).y, equalTo(0));
 		
 		assertThat(map.get(0, 0).type(), equalTo(CellType.BOMB));
 		assertThat(map.get(0, 0).turnsLeft(), equalTo(0));

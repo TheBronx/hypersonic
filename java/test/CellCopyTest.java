@@ -83,14 +83,4 @@ public class CellCopyTest {
 		assertThat(copy.itemType(), equalTo(ItemType.RANGE));
 	}
 	
-	@Test
-	public void copyPlayers() {
-		Robot player = new Robot(0, 0, 0);
-		Cell original = new Cell(CellType.EMPTY);
-		original.addPlayer(player);
-		
-		Cell copy = original.copy();
-		
-		assertTrue(copy.isPlayer());
-	}
 }
