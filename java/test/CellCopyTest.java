@@ -22,20 +22,6 @@ public class CellCopyTest {
 		
 		assertThat(copy.type(), equalTo(CellType.BOMB));
 	}
-	
-	@Test
-	public void copyCellCoordinates() {
-		int x = 5;
-		int y = 0;
-
-		Cell original = new Cell(CellType.EMPTY);
-		original.setCoordinates(x, y);
-		
-		Cell copy = original.copy();
-		
-		assertThat(copy.x, equalTo(x));
-		assertThat(copy.y, equalTo(y));
-	}
 
 	@Test
 	public void copyBombRange() {
