@@ -420,13 +420,10 @@ class Cell implements Comparable<Cell> {
 	public int x;
 	public int y;
 	
-	private int remainingBombs;
 	private int bombRange;
 	private int owner;
 	private int turnsLeft;
 	private ItemType itemType;
-	private boolean reachable;
-	private int steps;
 	private List<Robot> players;
 
 	public Cell(CellType type) {
@@ -484,14 +481,6 @@ class Cell implements Comparable<Cell> {
 		return type;
 	}
 	
-	public void setRemainingBombs(int bombs) {
-		this.remainingBombs = bombs;
-	}
-
-	public int remainingBombs() {
-		return remainingBombs;
-	}
-	
 	public void setBombRange(int range) {
 		this.bombRange = range;
 	}
@@ -524,22 +513,6 @@ class Cell implements Comparable<Cell> {
 		return itemType;
 	}
 	
-	public void steps(int steps) {
-		this.steps = steps;
-	}
-	
-	public int steps() {
-		return steps;
-	}
-
-	public void reachable(boolean isReachable) {
-		this.reachable = isReachable;
-	}
-
-	public boolean reachable() {
-		return reachable;
-	}
-
 	public Cell blowUp() {
 		if (type == CellType.WALL) return this; //walls never explode
 		
@@ -574,7 +547,6 @@ class Cell implements Comparable<Cell> {
 		cell.setTurnsLeft(this.turnsLeft());
 		cell.setOwner(this.owner());
 		cell.setItemType(this.itemType());
-		cell.setRemainingBombs(this.remainingBombs());
 		for (Robot player : players) {
 			cell.addPlayer(player.copy());
 		}

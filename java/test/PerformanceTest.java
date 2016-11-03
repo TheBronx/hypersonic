@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class PerformanceTest {
@@ -57,5 +58,22 @@ public class PerformanceTest {
 		
 		System.out.println(elapsed);
 		System.out.println(move.toString());
+	}
+	
+	@Ignore
+	@Test
+	public void loop() {
+		Map map = new Map(13, 11, 0);
+		
+		map.parse(veryComplexMapInputs); //first level has 10 moves, and branching is huge
+		
+		for(int i=0; i<10000; i++) {
+			long before = System.nanoTime();
+			Move move = map.move(12);
+			double elapsed = (System.nanoTime() - before)/1000000f;
+			
+			System.out.println(elapsed);
+			System.out.println(move.toString());
+		}
 	}
 }
