@@ -1,7 +1,14 @@
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 class Player {
-	private static final int DEPTH = 4;
+	private static final int DEPTH = 6;
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
@@ -23,9 +30,11 @@ class Player {
             //System.err.println(inputs.toString());
             map.parse(inputs.toString());
 
+            long before = System.nanoTime();
             Move move = map.move(DEPTH);
-            System.err.println("PLAN: " + move.toString());
-			System.out.println(move.output());
+            double elapsed = (System.nanoTime() - before)/1000000f;
+			System.out.println(move.output() + " Move: " + Math.floor(elapsed) + "ms");
+			System.err.println("PLAN: " + move.toString());
         }
     }
 }
@@ -73,7 +82,6 @@ class Map {
 			}
 		}
 		
-		//computeReachability(me.x, me.y);
 		fixBombTurns();
 	}
 	
@@ -153,38 +161,6 @@ class Map {
 	    return bombs;
 	}
 
-	/*private void computeReachability(int x, int y) {
-		Position previousCell = new Position(x, y);
-	    reach(x-1, y, 1, previousCell);
-	    reach(x+1, y, 1, previousCell);
-	    reach(x, y-1, 1, previousCell);
-	    reach(x, y+1, 1, previousCell);
-
-	    map[x][y].reachable(true);
-	    map[x][y].steps(0);
-	}
-	
-	private void reach(int x, int y, int steps, Position previousCell) {
-		if (x<0 || x>=w) return;
-	    if (y<0 || y>=h) return;
-	    if (map[x][y].reachable() && map[x][y].steps() <= steps) return;
-
-	    if (map[x][y].isAnObstacle()) {
-	        map[x][y].reachable(false);
-	        map[x][y].steps(steps); //we store the "distance" cause we care about bombs
-	    }
-	    else {
-	        map[x][y].reachable(true);
-	        map[x][y].steps(steps);
-	        //map[x][y].previousCell(previousCell);
-	        Position thisCell = new Position(x, y);
-	        reach(x-1, y, steps+1, thisCell);
-	        reach(x+1, y, steps+1, thisCell);
-	        reach(x, y-1, steps+1, thisCell);
-	        reach(x, y+1, steps+1, thisCell);
-	    }
-	}*/
-
 	private void set(Cell cell) {
 		map[cell.x][cell.y] = cell;
 	}
@@ -219,6 +195,9 @@ class Map {
 	}
 
 	public Move move(int depth) {
+		long startTime = System.nanoTime();
+		ExecutorService es;
+		
 		Move root = new Move(-1,-1,false);
 		root.setResult(this);
 		List<Move> moves = new ArrayList<Move>();
@@ -226,22 +205,44 @@ class Map {
 		
 		List<Move> nextMoves;
 		int level = 0;
-		while(level<depth) {
+		long elapsedTime = 0;
+		while (level<depth && elapsedTime<90) {
 			nextMoves = new ArrayList<Move>();
+			//ExecutorService es = Executors.newFixedThreadPool(10);
+			es = Executors.newWorkStealingPool();
 			for (Move move : moves) {
-				//if (!move.result().playerIsDead()) { //if player dies, we stop looking deeper
-				if (move.shouldContinue()) {
-					move.result().goDeeper(move);
-					nextMoves.addAll(move.childs());
-				} else {
-					move.setScore(move.score() - 10); //penalizamos el quedarse quieto... psa
+				es.submit(new Branches(move));
+			}
+			
+			es.shutdown();
+			try {
+				elapsedTime = (System.nanoTime()-startTime)/1000000;
+				long timeout = 80-elapsedTime;
+				if (timeout<=0) timeout=1;
+				System.err.println("Consumed time: " + elapsedTime + ". We have " + timeout + "ms to finish level " + level);
+				boolean finished = es.awaitTermination(timeout, TimeUnit.MILLISECONDS);
+				if (!finished) {
+					es.shutdownNow();
+					elapsedTime = (System.nanoTime()-startTime)/1000000;
+					System.err.println("Level " + level + " cancelled! Consumed time: " + elapsedTime);
+					break;
 				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+				break;
+			}
+			
+			//once branching finishes, get all childs for next level
+			for (Move move : moves) {
+				nextMoves.addAll(move.childs());
 			}
 			
 			moves = nextMoves;
 			level++;
+			
+			elapsedTime = (System.nanoTime()-startTime)/1000000;
+			System.err.println("Branching level " + level + " finished. Consumed time: " + elapsedTime);
 		}
-		
 		
 		return root.bestPath().firstChild();
 	}
@@ -842,3 +843,22 @@ class Position {
 
 enum CellType {EMPTY, BOX, WALL, BOMB, ITEM}
 enum ItemType {BOMB, RANGE}
+
+class Branches implements Runnable {
+
+	private Move move;
+
+	public Branches(Move move) {
+		this.move = move;
+	}
+	
+	@Override
+	public void run() {
+		if (move.shouldContinue()) {
+			move.result().goDeeper(move);
+		} else {
+			move.setScore(move.score() - 10); //penalizamos el quedarse quieto... psa
+		}
+	}
+	
+}

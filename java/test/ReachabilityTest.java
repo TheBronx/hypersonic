@@ -8,8 +8,10 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.nio.charset.Charset;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore
 public class ReachabilityTest {
 
 	@Test
