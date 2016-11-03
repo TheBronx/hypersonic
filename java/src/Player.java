@@ -208,23 +208,20 @@ class Map {
 		long elapsedTime = 0;
 		while (level<depth && elapsedTime<90) {
 			nextMoves = new ArrayList<Move>();
-			//ExecutorService es = Executors.newFixedThreadPool(10);
 			es = Executors.newWorkStealingPool();
+			elapsedTime = (System.nanoTime()-startTime)/1000000;
+			long maxTime = 90-elapsedTime;
 			for (Move move : moves) {
-				es.submit(new Branches(move));
+				es.submit(new BranchingTask(move, maxTime));
 			}
 			
 			es.shutdown();
 			try {
-				elapsedTime = (System.nanoTime()-startTime)/1000000;
-				long timeout = 80-elapsedTime;
-				if (timeout<=0) timeout=1;
-				System.err.println("Consumed time: " + elapsedTime + ". We have " + timeout + "ms to finish level " + level);
-				boolean finished = es.awaitTermination(timeout, TimeUnit.MILLISECONDS);
+				if (maxTime<=0) maxTime=1;
+				boolean finished = es.awaitTermination(maxTime, TimeUnit.MILLISECONDS);
 				if (!finished) {
+					System.out.println("TIMEOUT!!");
 					es.shutdownNow();
-					elapsedTime = (System.nanoTime()-startTime)/1000000;
-					System.err.println("Level " + level + " cancelled! Consumed time: " + elapsedTime);
 					break;
 				}
 			} catch (InterruptedException e) {
@@ -239,41 +236,12 @@ class Map {
 			
 			moves = nextMoves;
 			level++;
-			
-			elapsedTime = (System.nanoTime()-startTime)/1000000;
-			System.err.println("Branching level " + level + " finished. Consumed time: " + elapsedTime);
 		}
 		
 		return root.bestPath().firstChild();
 	}
 	
-	public void goDeeper(Move path) {
-		List<Move> moves = possibleMoves();
-		for (Move move : moves) {
-			Map result = this.simulate(move);
-			
-			//evaluate result
-			//System.err.println("Evaluate move " + move.toString() + " at depth="+level);
-			int score = 0;
-			if (result.playerIsDead()) score = score - 100;
-			if (move.placeBomb) {
-				Cell hypotheticalBomb = new Cell(CellType.BOMB);
-				hypotheticalBomb.setCoordinates(me.x, me.y);
-				hypotheticalBomb.setBombRange(me.bombRange());
-				hypotheticalBomb.setTurnsLeft(7);
-				score = score + 5*boxesInRange(hypotheticalBomb);
-			}
-			//if this cell is safe for n turns, score + n
-			//if this cell contains an item, score + 3
-			move.setScore(score);
-			move.setResult(result);
-			
-			move.setParent(path);
-			path.addChild(move);
-		}
-	}
-	
-	private int boxesInRange(Cell bomb) {
+	public int boxesInRange(Cell bomb) {
 		List<Cell> things = explosiveThingsInRangeOfBomb(bomb);
 		int boxes = 0;
 		for (Cell cell : things) {
@@ -844,21 +812,67 @@ class Position {
 enum CellType {EMPTY, BOX, WALL, BOMB, ITEM}
 enum ItemType {BOMB, RANGE}
 
-class Branches implements Runnable {
+class BranchingTask implements Runnable {
 
 	private Move move;
+	private long startTime;
+	private long maxTimeMs;
 
-	public Branches(Move move) {
+	public BranchingTask(Move move, long maxTimeMs) {
 		this.move = move;
+		this.startTime = System.nanoTime();
+		this.maxTimeMs = maxTimeMs;
 	}
 	
 	@Override
 	public void run() {
+		if (noMoreTime()) {
+			Thread.currentThread().interrupt();
+			return;
+		}
+		
 		if (move.shouldContinue()) {
-			move.result().goDeeper(move);
+			branchFromNode(move.result(), move);
 		} else {
 			move.setScore(move.score() - 10); //penalizamos el quedarse quieto... psa
 		}
+	}
+	
+	private void branchFromNode(Map map, Move node) {
+		Robot me = map.me();
+		List<Move> moves = map.possibleMoves();
+		for (Move move : moves) {
+			if (noMoreTime()) {
+				Thread.currentThread().interrupt();
+				break;
+			}
+			Map result = map.simulate(move);
+			
+			//evaluate result
+			//System.err.println("Evaluate move " + move.toString() + " at depth="+level);
+			int score = 0;
+			if (result.playerIsDead()) score = score - 100;
+			if (move.placeBomb) {
+				Cell hypotheticalBomb = new Cell(CellType.BOMB);
+				hypotheticalBomb.setCoordinates(me.x, me.y);
+				hypotheticalBomb.setBombRange(me.bombRange());
+				hypotheticalBomb.setTurnsLeft(7);
+				score = score + 5*map.boxesInRange(hypotheticalBomb);
+			}
+			//if this cell is safe for n turns, score + n
+			//if this cell contains an item, score + 3
+			move.setScore(score);
+			move.setResult(result);
+			
+			move.setParent(node);
+			node.addChild(move);
+		}
+	}
+	
+	private boolean noMoreTime() {
+		if (maxTimeMs<=0) return true;
+		long elapsedTime = (System.nanoTime()-startTime)/1000000;
+		return elapsedTime>=maxTimeMs;
 	}
 	
 }
