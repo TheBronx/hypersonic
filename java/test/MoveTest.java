@@ -1,5 +1,4 @@
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.startsWith;
+import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
@@ -88,6 +87,19 @@ public class MoveTest {
 		
 		System.out.println(move.toString());
 		assertThat(move.output(), startsWith("BOMB"));
+	}
+	
+	@Test
+	public void keepMoving() throws IOException {
+		Map map = new Map(13, 11, 0);
+		
+		String inputs = TestUtils.readFile("inputs/realTestCase1.txt", Charset.defaultCharset());
+		map.parse(inputs);
+		
+		Move move = map.move(8);
+		
+		System.out.println(move.toString());
+		assertThat(move.output(), not(startsWith("MOVE 0 1")));
 	}
 
 }

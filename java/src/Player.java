@@ -56,6 +56,8 @@ class Map {
     }
 	
 	public void parse(String inputs) {
+		this.players.clear();
+		
 		String[] lines = inputs.split("\n");
 		for (int i=0; i<h; i++) {
 			String[] chars = lines[i].split("");
@@ -875,7 +877,7 @@ class BranchingTask implements Runnable {
 		if (move.shouldContinue()) {
 			branchFromNode(move.result(), move);
 		} else {
-			move.setScore(move.score() - 10); //penalizamos el quedarse quieto... psa
+			move.setScore(move.score() - 5); //penalizamos el quedarse quieto... psa
 		}
 	}
 	
@@ -895,7 +897,7 @@ class BranchingTask implements Runnable {
 			if (result.playerIsDead()) score = score - 100;
 			if (move.placeBomb) {
 				Cell hypotheticalBomb = CellFactory.createBomb(me.id, me.bombRange(), 7);
-				score = score + 5*map.boxesInRange(hypotheticalBomb, me.x, me.y);
+				score = score + 10*map.boxesInRange(hypotheticalBomb, me.x, me.y);
 			}
 			//if this cell is safe for n turns, score + n
 			//if this cell contains an item, score + 3
