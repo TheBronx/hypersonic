@@ -63,6 +63,8 @@ public class PerformanceTest {
 	@Ignore
 	@Test
 	public void loop() {
+		//run with -XX:+PrintGC to see what the GC is doing when the time exceeds 100ms
+		//limit mem with -Xmx768m
 		Map map = new Map(13, 11, 0);
 		
 		map.parse(veryComplexMapInputs); //first level has 10 moves, and branching is huge
@@ -72,8 +74,9 @@ public class PerformanceTest {
 			Move move = map.move(12);
 			double elapsed = (System.nanoTime() - before)/1000000f;
 			
-			System.out.println(elapsed);
-			System.out.println(move.toString());
+			if (elapsed>100) System.err.println(elapsed);
+			//else System.out.println(elapsed);
+			//System.out.println(move.toString());
 		}
 	}
 }

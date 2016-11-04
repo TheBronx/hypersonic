@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
@@ -22,6 +23,7 @@ class Player {
         	for (int i = 0; i < height; i++) {
         		inputs.append(in.next() + "\n");
             }
+        	long before = System.nanoTime();
             int entities = in.nextInt();
             for (int i = 0; i < entities; i++) {
             	inputs.append(in.nextInt()+" "+in.nextInt()+" "+in.nextInt()+" "+in.nextInt()+" "+in.nextInt()+" "+in.nextInt());
@@ -30,7 +32,6 @@ class Player {
             //System.err.println(inputs.toString());
             map.parse(inputs.toString());
 
-            long before = System.nanoTime();
             Move move = map.move(DEPTH);
             double elapsed = (System.nanoTime() - before)/1000000f;
 			System.out.println(move.output() + " Move: " + Math.floor(elapsed) + "ms");
@@ -133,7 +134,7 @@ class Map {
 		List<BombPosition> bombs = new ArrayList<BombPosition>();
 	    for (int x=0; x<w; x++) {
 	        for (int y=0; y<h; y++) {
-	            if (map[x][y].type() == CellType.BOMB) {
+	            if (map[x][y].isBomb()) {
 	                bombs.add(new BombPosition(map[x][y], x, y));
 	            }
 	        }
@@ -142,15 +143,21 @@ class Map {
 	    Collections.sort(bombs);
 
 	    for (int i=0; i<bombs.size(); i++) {
-	        Cell bomb = map[bombs.get(i).position.x][bombs.get(i).position.y];
-	        Integer min = minTurnsLeftOfBombsInRange(bombs.get(i).position.x, bombs.get(i).position.y);
+	        int x = bombs.get(i).position.x;
+			int y = bombs.get(i).position.y;
+			Cell bomb = map[x][y];
+	        Integer min = minTurnsLeftOfBombsInRange(x, y);
 	        if (min != null && min < bomb.turnsLeft()) {
-	            bomb.setTurnsLeft(min); //adjust this bomb turns
+	        	map[x][y] = CellFactory.createBomb(bomb.owner(), bomb.bombRange(), min);
 	            //now adjust affected bombs too
-	            List<Position> bombsAffected = bombsInRange(bombs.get(i).position.x, bombs.get(i).position.y);
+	            List<Position> bombsAffected = bombsInRange(x, y);
 	            for (int j=0; j<bombsAffected.size(); j++) {
-	                Cell affectedBombCell = map[bombsAffected.get(j).x][bombsAffected.get(j).y];
-	                if (affectedBombCell.turnsLeft()>min) affectedBombCell.setTurnsLeft(min);
+	                int x2 = bombsAffected.get(j).x;
+					int y2 = bombsAffected.get(j).y;
+					Cell affectedBombCell = map[x2][y2];
+	                if (affectedBombCell.turnsLeft()>min) {
+	                	map[x2][y2] = CellFactory.createBomb(affectedBombCell.owner(), affectedBombCell.bombRange(), min);
+	                }
 	            }
 	        }
 	    }
@@ -228,7 +235,7 @@ class Map {
 		Cell[][] cellsCopy = new Cell[w][h];
 		for (int x=0; x<w; x++) 
 			for (int y=0; y<h; y++)
-				cellsCopy[x][y] = map[x][y].copy();
+				cellsCopy[x][y] = map[x][y];
 		copy.setCells(cellsCopy);
 		for (Robot player : players) {
 			copy.addPlayer(player.copy());
@@ -262,7 +269,7 @@ class Map {
 				if (maxTime<=0) maxTime=1;
 				boolean finished = es.awaitTermination(maxTime, TimeUnit.MILLISECONDS);
 				if (!finished) {
-					System.out.println("TIMEOUT!!");
+					//System.out.println("TIMEOUT!!");
 					es.shutdownNow();
 					break;
 				}
@@ -349,10 +356,7 @@ class Map {
 		
 		//then we place a bomb in our current position
 		if (move.placeBomb) {
-			Cell bomb = new Cell(CellType.BOMB);
-			bomb.setTurnsLeft(7);
-			bomb.setBombRange(player.bombRange());
-			bomb.setOwner(player.id);
+			Cell bomb = CellFactory.createBomb(player.id, player.bombRange(), 7);
 			player.decreaseBombs();
 			copy.set(bomb, player.x, player.y);
 		}
@@ -363,7 +367,7 @@ class Map {
 		
 		//if there is an item there, we take it
 		if (copy.get(player.x, player.y).isItem()) {
-			Cell empty = new Cell(CellType.EMPTY);
+			Cell empty = CellFactory.createEmpty();
 			copy.set(empty, player.x, player.y);
 		}
 		
@@ -376,7 +380,7 @@ class Map {
 				Cell cell = map[x][y];
 				if (cell.isBomb()) {
 					if (cell.turnsLeft() > 0) {
-						cell.setTurnsLeft(cell.turnsLeft() - 1);
+						map[x][y] = cell.decreaseTurnsLeft();
 					} else {
 						explodeThingsInRangeOf(cell, x, y);
 						
@@ -495,64 +499,52 @@ class Map {
 
 }
 
-class Cell implements Comparable<Cell> {
+class Cell {
 	
-	private CellType type;
+	private final CellType type;
+	private final int bombRange;
+	private final int owner;
+	private final int turnsLeft;
+	private final ItemType itemType;
 
-	private int bombRange;
-	private int owner;
-	private int turnsLeft;
-	private ItemType itemType;
-
-	public Cell(CellType type) {
+	public Cell(CellType type, int owner, int bombRange, int turnsLeft, ItemType itemType) {
 		this.type = type;
+		this.owner = owner;
+		this.bombRange = bombRange;
+		this.turnsLeft = turnsLeft;
+		this.itemType = itemType;
+	}
+
+	public Cell decreaseTurnsLeft() {
+		return CellFactory.createBomb(owner, bombRange, turnsLeft - 1);
 	}
 
 	public boolean isBomb() { return type == CellType.BOMB; }
 	public boolean isWall() { return type == CellType.WALL; }
 	public boolean isBox() { return type == CellType.BOX; }
 	public boolean isItem() { return type == CellType.ITEM; }
+	public boolean isEmpty() { return type == CellType.EMPTY; }
 
 	public boolean isAnObstacle() {
 		return type == CellType.WALL || type == CellType.BOX || type == CellType.BOMB;
-	}
-
-	public boolean isEmpty() {
-		return type == CellType.EMPTY;
 	}
 
 	public CellType type() {
 		return type;
 	}
 	
-	public void setBombRange(int range) {
-		this.bombRange = range;
-	}
-
 	public int bombRange() {
 		return bombRange;
-	}
-
-	public void setTurnsLeft(int turnsLeft) {
-		this.turnsLeft = turnsLeft;
 	}
 
 	public int turnsLeft() {
 		return turnsLeft;
 	}
 	
-	public void setOwner(int owner) {
-		this.owner = owner;
-	}
-	
 	public int owner() {
 		return owner;
 	}
 
-	public void setItemType(ItemType itemType) {
-		this.itemType = itemType;
-	}
-	
 	public ItemType itemType() {
 		return itemType;
 	}
@@ -560,36 +552,17 @@ class Cell implements Comparable<Cell> {
 	public Cell blowUp() {
 		if (type == CellType.WALL) return this; //walls never explode
 		
-		Cell explodedCell = new Cell(CellType.EMPTY);
+		Cell explodedCell = CellFactory.createEmpty();
 		
 		if (type == CellType.BOX && itemType != null) {
-			explodedCell = new Cell(CellType.ITEM);
-			if (itemType == ItemType.BOMB) explodedCell.setItemType(ItemType.BOMB);
-			if (itemType == ItemType.RANGE) explodedCell.setItemType(ItemType.RANGE);
+			explodedCell = CellFactory.createItem(itemType);
 		}
 		
 		return explodedCell;
 	}
 	
-	@Override
-	public int compareTo(Cell o) {
-		return this.turnsLeft() - o.turnsLeft();
-	}
-	
 	public String toString() {
 		return type.toString();
-	}
-	
-	/**
-	 * Does not copy reachability nor steps
-	 */
-	public Cell copy() {
-		Cell cell = new Cell(type);
-		cell.setBombRange(this.bombRange());
-		cell.setTurnsLeft(this.turnsLeft());
-		cell.setOwner(this.owner());
-		cell.setItemType(this.itemType());
-		return cell;
 	}
 	
 }
@@ -767,52 +740,96 @@ class Robot {
 }
 
 class CellFactory {
+	private static final Cell EMPTY = new Cell(CellType.EMPTY, 0, 0, 0, null);
+	private static final Cell WALL = new Cell(CellType.WALL, 0, 0, 0, null);
+	private static final Cell EMPTY_BOX = new Cell(CellType.BOX, 0, 0, 0, null);
+	private static final Cell BOX_BOMB = new Cell(CellType.BOX, 0, 0, 0, ItemType.BOMB);
+	private static final Cell BOX_RANGE = new Cell(CellType.BOX, 0, 0, 0, ItemType.RANGE);
+	private static final Cell ITEM_BOMB = new Cell(CellType.ITEM, 0, 0, 0, ItemType.BOMB);
+	private static final Cell ITEM_RANGE = new Cell(CellType.ITEM, 0, 0, 0, ItemType.RANGE);
+	
+	private static java.util.Map<String, Cell> bombPool = new HashMap<String, Cell>();
+
 	public static Cell createFromMap(String character) {
-		Cell cell = new Cell(CellType.EMPTY);
+		Cell cell;
 		switch (character) {
 		case ".":
-			cell = new Cell(CellType.EMPTY);
+			cell = createEmpty();
 			break;
 		case "X":
-			cell = new Cell(CellType.WALL);
+			cell = createWall();
 			break;
 		case "0":
-			cell = new Cell(CellType.BOX);
+			cell = createBox(null);
 			break;
 		case "1":
-			cell = new Cell(CellType.BOX);
-			cell.setItemType(ItemType.RANGE);
+			cell = createBox(ItemType.RANGE);
 			break;
 		case "2":
-			cell = new Cell(CellType.BOX);
-			cell.setItemType(ItemType.BOMB);
+			cell = createBox(ItemType.BOMB);
+			break;
+		default:
+			cell = createEmpty();
 			break;
 		}
 		return cell;
 	}
 	
 	public static Cell createFromEntity(String character, int owner, int param1, int param2) {
-		Cell cell = new Cell(CellType.EMPTY);
+		Cell cell;
 		switch (character) {
 		case "1":
-			cell = new Cell(CellType.BOMB);
-			cell.setOwner(owner);
-			cell.setTurnsLeft(param1 - 1); //current turn should not count
-			cell.setBombRange(param2);
+			cell = createBomb(owner, param2, param1 - 1);
 			break;
 		case "2":
-			cell = new Cell(CellType.ITEM);
-			if (param1 == 1) cell.setItemType(ItemType.RANGE);
-			if (param1 == 2) cell.setItemType(ItemType.BOMB);
+			ItemType itemType = ItemType.RANGE;
+			if (param1 == 2) itemType = ItemType.BOMB;
+			cell = createItem(itemType);
+			break;
+		default:
+			cell = createEmpty();
 			break;
 		}
 		return cell;
 	}
+	
+	private static Cell createWall() {
+		return WALL;
+	}
+	
+	public static Cell createEmpty() {
+		return EMPTY;
+	}
+	
+	public static Cell createBox(ItemType itemType) {
+		if (itemType == null) return EMPTY_BOX;
+		if (itemType == ItemType.BOMB) return BOX_BOMB;
+		return BOX_RANGE;
+	}
+	
+	public static Cell createItem(ItemType itemType) {
+		if (itemType == ItemType.BOMB) return ITEM_BOMB;
+		return ITEM_RANGE;
+	}
+	
+	public static Cell createBomb(int owner, int bombRange, int turnsLeft) {
+		String key = bombKey(owner, bombRange, turnsLeft);
+		Cell bomb = bombPool.get(key);
+		if (bomb == null) {
+			bomb = new Cell(CellType.BOMB, owner, bombRange, turnsLeft, null);
+			bombPool.put(key, bomb);
+		}
+		return bomb;
+	}
+	
+	public static String bombKey(int owner, int range, int turns) {
+		return owner + " " + range + " " + turns;
+	}
 }
 
 class Position {
-	public int y;
-	public int x;
+	public final int y;
+	public final int x;
 
 	public Position(int x, int y) {
 		this.x = x;
@@ -821,8 +838,8 @@ class Position {
 }
 
 class BombPosition implements Comparable<BombPosition> {
-	public Position position;
-	public Cell bomb;
+	public final Position position;
+	public final Cell bomb;
 	
 	public BombPosition(Cell cell, int x, int y) {
 		this.bomb = cell;
@@ -841,8 +858,8 @@ enum ItemType {BOMB, RANGE}
 class BranchingTask implements Runnable {
 
 	private Move move;
-	private long startTime;
-	private long maxTimeMs;
+	private final long startTime;
+	private final long maxTimeMs;
 
 	public BranchingTask(Move move, long maxTimeMs) {
 		this.move = move;
@@ -879,9 +896,7 @@ class BranchingTask implements Runnable {
 			int score = 0;
 			if (result.playerIsDead()) score = score - 100;
 			if (move.placeBomb) {
-				Cell hypotheticalBomb = new Cell(CellType.BOMB);
-				hypotheticalBomb.setBombRange(me.bombRange());
-				hypotheticalBomb.setTurnsLeft(7);
+				Cell hypotheticalBomb = CellFactory.createBomb(me.id, me.bombRange(), 7);
 				score = score + 5*map.boxesInRange(hypotheticalBomb, me.x, me.y);
 			}
 			//if this cell is safe for n turns, score + n

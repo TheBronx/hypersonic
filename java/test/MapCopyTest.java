@@ -1,7 +1,5 @@
 import static org.hamcrest.CoreMatchers.equalTo;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -35,10 +33,6 @@ public class MapCopyTest {
 		
 		assertThat(copy.get(0, 0).type(), equalTo(original.get(0, 0).type()));
 		assertThat(copy.get(3, 0).type(), equalTo(original.get(3, 0).type()));
-		
-		//objects are not the same instance
-		assertFalse(original.get(0, 0) == copy.get(0, 0));
-		assertFalse(original.get(3, 0) == copy.get(3, 0));
 	}
 
 	@Test
