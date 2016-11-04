@@ -44,7 +44,6 @@ class Map {
 	private int w;
 	private int h;
 	private Cell[][] map;
-	private Robot me;
 	private int playerId;
 	private List<Robot> players;
 
@@ -78,7 +77,6 @@ class Map {
 				player.setRemainingBombs(param1);
 				player.setBombRange(param2);
 				
-				if (player.id == playerId) me = player;
 				addPlayer(player);
 			}
 		}
@@ -96,7 +94,6 @@ class Map {
 
 	public void addPlayer(Robot player) {
 		this.players.add(player);
-		if (player.id == playerId) me = player;
 	}
 	
 	public void removePlayer(Robot me) {
@@ -300,6 +297,7 @@ class Map {
 	}
 
 	public List<Move> possibleMoves() {
+		Robot me = me();
 		List<Move> moves = new ArrayList<Move>();
 		int x = me.x;
 		int y = me.y;

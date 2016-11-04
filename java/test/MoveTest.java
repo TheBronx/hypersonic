@@ -76,5 +76,18 @@ public class MoveTest {
 		System.out.println(move.toString());
 		assertThat(move.output(), startsWith("MOVE 0 1"));
 	}
+	
+	@Test
+	public void placeBomb() throws IOException {
+		Map map = new Map(13, 11, 0);
+		
+		String inputs = TestUtils.readFile("inputs/placeBombHere.txt", Charset.defaultCharset());
+		map.parse(inputs);
+		
+		Move move = map.move(8);
+		
+		System.out.println(move.toString());
+		assertThat(move.output(), startsWith("BOMB"));
+	}
 
 }
