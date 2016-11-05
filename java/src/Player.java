@@ -716,6 +716,22 @@ class Move {
 		
 		return move;
 	}
+	
+	public String asJson() {
+		String text = "{\"name\": \""+ "(" + score + ") " + output() +"\"}";
+		String children = "[";
+		if (this.hasChilds()) {
+			for (Move child : childs) {
+				children += child.asJson() + ", ";
+			}
+			children = children.substring(0, children.length()-2);
+			children += "]";
+		} else {
+			children = "[]";
+		}
+		
+		return "{\"text\":" + text + ", \"children\": " + children + "}";
+	}
 }
 
 class Robot {
