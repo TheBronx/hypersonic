@@ -9,7 +9,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 class Player {
-	private static final int DEPTH = 6;
+	private static final int DEPTH = 7;
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
@@ -246,7 +246,8 @@ class Map {
 		long startTime = System.nanoTime();
 		ExecutorService es;
 		
-		Move root = new Move(-1,-1,false);
+		Move root = new Move(me().x, me().y, false);
+		root.setLevel(0);
 		root.setResult(this);
 		List<Move> moves = new ArrayList<Move>();
 		moves.add(root);
@@ -263,12 +264,16 @@ class Map {
 				es.submit(new BranchingTask(move, maxTime));
 			}
 			
+			if (maxTime<=5) {
+				//not enough time to start and wait for all the threads, stop now!
+				es.shutdownNow();
+				break;
+			}
 			es.shutdown();
 			try {
-				if (maxTime<=0) maxTime=1;
 				boolean finished = es.awaitTermination(maxTime, TimeUnit.MILLISECONDS);
 				if (!finished) {
-					//System.out.println("TIMEOUT!!");
+					System.err.println("TIMEOUT!!");
 					es.shutdownNow();
 					break;
 				}
@@ -281,7 +286,7 @@ class Map {
 			for (Move move : moves) {
 				nextMoves.addAll(move.childs());
 			}
-			
+			if (nextMoves.size()>2000) break;//this is fucking crazy. stop!
 			moves = nextMoves;
 			level++;
 		}
@@ -569,7 +574,8 @@ class Cell {
 
 class Move {
 
-	private static final int PENALTY = 1; //chaining moves has a penalty (because for the same score, closer is better)
+	private static final int PENALTY = 2; //chaining moves has a penalty (because for the same score, closer is better)
+	private static final int DEPTH_BONUS = 1; //bonus for long moves (long=safe)
 	
 	public int x;
 	public int y;
@@ -577,6 +583,7 @@ class Move {
 	private Move parent;
 	private List<Move> childs;
 	private int score = 0;
+	private int level = 0;
 	private Map result;
 
 	public Move(int x, int y, boolean placeBomb) {
@@ -588,7 +595,8 @@ class Move {
 	
 	public boolean shouldContinue() {
 		if (result.playerIsDead()) return false; //we are dead, no need to simulate more moves...
-		if (parent!=null && parent.x == x && parent.y == y) return false; //we are not going very far...
+		//if we havent moved since the last turn, stop branching this shit. Unless we have placed a bomb. We care about future when bombs are placed :D
+		if (!placeBomb && parent!=null && parent.x == x && parent.y == y) return false; //we are not going very far...
 		return true;
 	}
 
@@ -611,7 +619,7 @@ class Move {
 	public Move bestPath() {
 		Move thisMove = new Move(x, y, placeBomb);
 		if (!hasChilds()) {
-			thisMove.setScore(score);
+			thisMove.setScore(score + levelBonus());
 			return thisMove;
 		}
 		
@@ -630,6 +638,11 @@ class Move {
 		return union;
 	}
 
+	private int levelBonus() {
+		if (score == 0) return 0;
+		return (level/2)*DEPTH_BONUS;
+	}
+	
 	public Move parent() {
 		return parent;
 	}
@@ -652,6 +665,14 @@ class Move {
 	
 	public void setScore(int score) {
 		this.score = score;
+	}
+
+	public int level() {
+		return level;
+	}
+	
+	public void setLevel(int level) {
+		this.level = level;
 	}
 	
 	public String output() {
@@ -676,7 +697,6 @@ class Move {
 		
 		return move;
 	}
-	
 }
 
 class Robot {
@@ -901,6 +921,7 @@ class BranchingTask implements Runnable {
 			}
 			//if this cell is safe for n turns, score + n
 			//if this cell contains an item, score + 3
+			move.setLevel(node.level() + 1);
 			move.setScore(score);
 			move.setResult(result);
 			
