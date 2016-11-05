@@ -101,5 +101,18 @@ public class MoveTest {
 		System.out.println(move.toString());
 		assertThat(move.output(), not(startsWith("MOVE 0 1")));
 	}
+	
+	@Test
+	public void dontTrap() throws IOException {
+		Map map = new Map(13, 11, 0);
+		
+		String inputs = TestUtils.readFile("inputs/trapped.txt", Charset.defaultCharset());
+		map.parse(inputs);
+		
+		Move move = map.move(8);
+		
+		System.out.println(move.toString());
+		assertThat(move.output(), not(startsWith("BOMB 5 0")));
+	}
 
 }
