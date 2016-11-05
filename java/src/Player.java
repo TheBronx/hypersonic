@@ -34,7 +34,7 @@ class Player {
 
             Move move = map.move(DEPTH);
             double elapsed = (System.nanoTime() - before)/1000000f;
-			System.out.println(move.output() + " Move: " + Math.floor(elapsed) + "ms");
+			System.out.println(move.output() + " " + Math.floor(elapsed) + "ms");
 			System.err.println("PLAN: " + move.toString());
         }
     }
@@ -372,6 +372,7 @@ class Map {
 		
 		//if there is an item there, we take it
 		if (copy.get(player.x, player.y).isItem()) {
+			move.setScore(move.score() + 5);
 			Cell empty = CellFactory.createEmpty();
 			copy.set(empty, player.x, player.y);
 		}
@@ -575,7 +576,6 @@ class Cell {
 class Move {
 
 	private static final int PENALTY = 2; //chaining moves has a penalty (because for the same score, closer is better)
-	private static final int DEPTH_BONUS = 1; //bonus for long moves (long=safe)
 	
 	public int x;
 	public int y;
@@ -615,11 +615,23 @@ class Move {
 	public Move firstChild() {
 		return childs.get(0);
 	}
+	
+	public int maxDepth() {
+		if (!hasChilds()) return level;
+		
+		int max = 0;
+		for (Move move : childs) {
+			int depth = move.maxDepth();
+			if (depth>max)
+				max = depth;
+		}
+		return max;
+	}
 
 	public Move bestPath() {
 		Move thisMove = new Move(x, y, placeBomb);
 		if (!hasChilds()) {
-			thisMove.setScore(score + levelBonus());
+			thisMove.setScore(levelBonus());
 			return thisMove;
 		}
 		
@@ -634,13 +646,20 @@ class Move {
 		int childScore = selectedPath.score();
 		if (childScore > 0)
 			childScore -= PENALTY;
-		union.setScore(score + childScore);
+		
+		int totalScore = score + childScore;
+		if (level==0) totalScore = totalScore * maxDepth();
+		union.setScore(totalScore);
 		return union;
 	}
 
+	/**
+	 * Higher bonus for short score actions
+	 * A bomb placed in 2 turns is better than a bomb in 6 turns
+	 */
 	private int levelBonus() {
 		if (score == 0) return 0;
-		return (level/2)*DEPTH_BONUS;
+		return score*(7-level);
 	}
 	
 	public Move parent() {
@@ -913,8 +932,8 @@ class BranchingTask implements Runnable {
 			
 			//evaluate result
 			//System.err.println("Evaluate move " + move.toString() + " at depth="+level);
-			int score = 0;
-			if (result.playerIsDead()) score = score - 100;
+			int score = move.score();
+			if (result.playerIsDead()) score = score - 1000;
 			if (move.placeBomb) {
 				Cell hypotheticalBomb = CellFactory.createBomb(me.id, me.bombRange(), 7);
 				score = score + 10*map.boxesInRange(hypotheticalBomb, me.x, me.y);
