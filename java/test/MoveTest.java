@@ -114,5 +114,15 @@ public class MoveTest {
 		System.out.println(move.toString());
 		assertThat(move.output(), not(startsWith("BOMB 5 0")));
 	}
+	
+	@Test
+	public void escapeChainedBombs() throws IOException {
+		
+	}
+	
+	@Test
+	public void chooseBestBombPosition() throws IOException {
+		
+	}
 
 }

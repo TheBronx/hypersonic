@@ -41,6 +41,7 @@ class Player {
 }
 
 class Map {
+	private static final int MAX_TIME = 90; //milliseconds
 	private int w;
 	private int h;
 	private Cell[][] map;
@@ -255,7 +256,7 @@ class Map {
 		List<Move> nextMoves;
 		int level = 0;
 		long elapsedTime = 0;
-		while (level<depth && elapsedTime<90) {
+		while (level<depth && elapsedTime<MAX_TIME) {
 			nextMoves = new ArrayList<Move>();
 			es = Executors.newWorkStealingPool();
 			elapsedTime = (System.nanoTime()-startTime)/1000000;
@@ -291,6 +292,7 @@ class Map {
 			level++;
 		}
 		
+		//System.out.println(root.asJson());
 		return root.bestPath().firstChild();
 	}
 	
@@ -647,8 +649,11 @@ class Move {
 		if (childScore > 0)
 			childScore -= PENALTY;
 		
+		int maxDepth = maxDepth();
 		int totalScore = score + childScore;
-		if (level==0) totalScore = totalScore * maxDepth();
+		if (placeBomb && maxDepth<6) totalScore -= 50; //if you place a bomb and dont look ahead at least 5 turns, penalty
+		if (level>1) totalScore = totalScore / level; //score in first move is more valuable than score in 6th move
+		if (level==0) totalScore = totalScore * maxDepth; //a move with a high number of steps is much better
 		union.setScore(totalScore);
 		return union;
 	}
@@ -947,15 +952,13 @@ class BranchingTask implements Runnable {
 			Map result = map.simulate(move);
 			
 			//evaluate result
-			//System.err.println("Evaluate move " + move.toString() + " at depth="+level);
 			int score = move.score();
 			if (result.playerIsDead()) score = score - 1000;
 			if (move.placeBomb) {
 				Cell hypotheticalBomb = CellFactory.createBomb(me.id, me.bombRange(), 7);
-				score = score + 10*map.boxesInRange(hypotheticalBomb, me.x, me.y);
+				score = score + 20*map.boxesInRange(hypotheticalBomb, me.x, me.y);
 			}
-			//if this cell is safe for n turns, score + n
-			//if this cell contains an item, score + 3
+			
 			move.setLevel(node.level() + 1);
 			move.setScore(score);
 			move.setResult(result);
