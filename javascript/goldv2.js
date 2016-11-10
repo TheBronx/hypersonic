@@ -299,21 +299,7 @@ function compareSafeMoves(one, best) {
  * @returns {*}
  */
 function nextMove(map, onlySafeMove) {
-    if (onlySafeMove == null) onlySafeMove = false;
-
-    var boxMove = null;
-    if (!onlySafeMove && ignorePlayers && REMAINING_BOMBS>0) boxMove = moveToScore(map);
-
-    var killerMove = null;
-    if (!onlySafeMove && !ignorePlayers && REMAINING_BOMBS>0) killerMove = moveToKill(map);
-
-    var safeMove = null;
-    if (boxMove==null && killerMove==null)
-        safeMove = moveToStaySafe(map); //performance: if a box/kill move is found, dont waste time finding a safe move
-
-    if (boxMove) return boxMove;
-    if (killerMove) return killerMove;
-    return safeMove;
+    //sorry, you can't copy/paste this code :P
 }
 
 function moveToStaySafe(map) {

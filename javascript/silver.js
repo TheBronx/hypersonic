@@ -261,10 +261,7 @@ function nextMove(map, onlySafeMove) {
         }
     }
 
-    if (scoreMove.empty && safeMove.empty) return null;
-    if (scoreMove.empty) return safeMove;
-    if (REMAINING_BOMBS <= 0) return safeMove;
-    return scoreMove;
+    return safeMove;
 }
 
 function moveAfterBomb(bomb) {

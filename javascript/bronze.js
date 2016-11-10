@@ -90,13 +90,7 @@ function canDestroySomething() {
 }
 
 function nextMove() {
-    if (!goingTo) return findClosestSafeSpot(); //no move pending
-
-    if (goingTo.x == me.x && goingTo.y == me.y) return findAnotherSafeSpot(); //we reached the target
-
-    if (map[goingTo.x][goingTo.y].bombInRange) return findClosestSafeSpot(); //target is no longer safe
-
-    return goingTo;
+    //sorry, you can't copy/paste this code :P
 }
 
 function iAmSafe() {
